@@ -23,6 +23,8 @@ public class DNSServer
     private static final byte END_OF_QNAME = (byte) 0x0;
     private static final int RR_TYPE_A = 1;
     private static final int RR_CLASS_IN = 1;
+    private static final int OPS_QR_RESPONSE = 0x80;
+    private static final int OPS_DR_RESPONSE = 0x01;
 
     private int port;
 
@@ -90,9 +92,10 @@ public class DNSServer
 
         outstream
             .writeShort(header.getID())
-            .writeShort(0)
-            .writeShort(1)
-            .writeShort(2)
+            .writeByte(OPS_DR_RESPONSE | OPS_QR_RESPONSE)
+            .writeByte(0)
+            .writeShort(1) // no questions
+            .writeShort(2) // no answers
             .writeShort(0)
             .writeShort(0);
         outstream

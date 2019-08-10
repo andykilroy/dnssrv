@@ -28,7 +28,7 @@ public class DNSServerTest
     }
 
     @Test
-    public void handleRequest() throws Exception
+    public void handleRequestWithOneQuestion() throws Exception
     {
         DNSServer server = new DNSServer(4001);
         ByteBuf output = Unpooled.buffer(8192);
@@ -38,7 +38,11 @@ public class DNSServerTest
             output
             );
         assertArrayEquals(
-            decodeHex("ffa981a00001000200000001037777770a636c6f7564666c61726503636f6d0000010001c00c000100010000012c00046811d109c00c000100010000012c00046811d2090000291000000000000000"),
+            decodeHex("ffa981000001000200000000" + // header
+                      "037777770a636c6f7564666c61726503636f6d0000010001" + // question
+                      "037777770a636c6f7564666c61726503636f6d00000100010000012c00046811d109" + // answer 1
+                      "037777770a636c6f7564666c61726503636f6d00000100010000012c00046811d209"   // answer 2
+                      ),
             toByteArray(output));
     }
 
