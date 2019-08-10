@@ -63,9 +63,10 @@ public class DNSServer
         if (header.isQuery())
         {
             handleQuery(header, instream, outstream);
+            respond(socket, packet.getSocketAddress(), out.toByteArray());
         }
+        // otherwise it's a response, so ignore it.
 
-        respond(socket, packet.getSocketAddress(), out.toByteArray());
     }
 
     public void handleQuery(DNSHeader header, DataInputStream instream, DataOutputStream outstream)
