@@ -1,6 +1,7 @@
 package org.akilroy;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import org.junit.Test;
 
@@ -40,6 +41,23 @@ public class DNSServerTest
             decodeHex("ffa981a00001000200000001037777770a636c6f7564666c61726503636f6d0000010001c00c000100010000012c00046811d109c00c000100010000012c00046811d2090000291000000000000000"),
             toByteArray(output));
     }
+
+    @Test
+    public void handleQuestion() throws Exception
+    {
+        DNSServer server = new DNSServer(4001);
+        ByteBuf output = Unpooled.buffer(8192);
+        server.handleQuestion(
+            wrappedBuffer(decodeHex("037777770a636c6f7564666c61726503636f6d0000010001")),
+            output
+        );
+        System.out.println(ByteBufUtil.hexDump(output));
+        assertArrayEquals(
+            decodeHex("037777770a636c6f7564666c61726503636f6d00000100010000012c00046811d109" +
+                      "037777770a636c6f7564666c61726503636f6d00000100010000012c00046811d209"),
+            toByteArray(output));
+    }
+
 
     private byte[] toByteArray(ByteBuf output)
     {
