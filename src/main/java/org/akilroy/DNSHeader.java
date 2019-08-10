@@ -12,9 +12,15 @@ public class DNSHeader
         this.inputBytes = headerBytes;
     }
 
-    public boolean hasQuery()
+    public boolean isQuery()
     {
-        return false;
+        int comp = unsignedInt(inputBytes[2]) & 0x80;
+        return comp != 0x80;
+    }
+
+    private int unsignedInt(byte inputByte)
+    {
+        return 0xff & (int)inputByte;
     }
 
     public byte[] getBytes()

@@ -60,7 +60,7 @@ public class DNSServer
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         DataOutputStream outstream = new DataOutputStream(out);
 
-        if (header.hasQuery())
+        if (header.isQuery())
         {
             handleQuery(header, instream, outstream);
         }
@@ -79,10 +79,22 @@ public class DNSServer
         socket.send(packet);
     }
 
-    public static DNSHeader extractHeader(DataInputStream datastream)
+    public static DNSHeader extractHeader(DataInputStream datastream) throws IOException
     {
         byte[] array = new byte[12];
+        readN(datastream, array, 0, 12);
         return new DNSHeader(array);
+    }
+
+    private static void readN(DataInputStream stream, byte[] output, int offset, int length) throws IOException
+    {
+        int readCount = stream.read(output, offset, length);
+        while (readCount < length)
+        {
+            int readBytes = length - readCount;
+            int off = readCount;
+            readCount += stream.read(output, off, readBytes);
+        }
     }
 
 }
