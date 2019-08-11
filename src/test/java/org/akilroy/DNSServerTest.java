@@ -62,7 +62,6 @@ public class DNSServerTest
             wrappedBuffer(decodeHex("037777770a636c6f7564666c61726503636f6d0000010001")),
             output
         );
-        System.out.println(ByteBufUtil.hexDump(output));
         assertArrayEquals(
             decodeHex("037777770a636c6f7564666c61726503636f6d00000100010000012c00046811d109" +
                       "037777770a636c6f7564666c61726503636f6d00000100010000012c00046811d209"),
