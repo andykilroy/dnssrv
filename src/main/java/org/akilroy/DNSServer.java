@@ -9,7 +9,6 @@ import java.net.DatagramSocket;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.SocketAddress;
-import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 
@@ -96,10 +95,7 @@ public class DNSServer
         try
         {
             DNSResponseBuilder builder = new DNSResponseBuilder(header);
-            instream.markReaderIndex();
-            int questionBytes = handleQuestion(instream, builder);
-            instream.resetReaderIndex();
-            builder.appendQuestion(instream.readBytes(questionBytes));
+            handleQuestion(instream, builder);
 
             builder.writeResponse(outstream);
         }
@@ -116,7 +112,7 @@ public class DNSServer
         builder.writeResponse(outstream);
     }
 
-    private int handleQuestion(ByteBuf instream, DNSResponseBuilder builder) throws IOException, UnknownQNameException
+    private void handleQuestion(ByteBuf instream, DNSResponseBuilder builder) throws IOException, UnknownQNameException
     {
         int start = instream.readerIndex();
         int qnamelength = instream.bytesBefore(END_OF_QNAME);
@@ -124,12 +120,15 @@ public class DNSServer
         int qtype = instream.readShort();
         int qclass = instream.readShort();
         int questionLength = instream.readerIndex() - start;
+        instream.readerIndex(start);
+
+        builder.appendQuestion(instream.readBytes(questionLength));
+
         InetAddress[] addrs = lookup(qnamebytes.slice());
         for (InetAddress addr : addrs)
         {
             builder.appendAnswer(qnamebytes.slice(), RR_TYPE_A, RR_CLASS_IN, 300, addr.getAddress());
         }
-        return questionLength;
     }
 
     private InetAddress[] lookup(ByteBuf qnamebytes) throws UnknownQNameException
@@ -146,7 +145,7 @@ public class DNSServer
         int len = unsignedByte(qnamebytes);
         while (len > 0)
         {
-            CharSequence labelbuf = qnamebytes.readCharSequence(len, StandardCharsets.ISO_8859_1);
+            CharSequence labelbuf = qnamebytes.readCharSequence(len, StandardCharsets.UTF_8);
             builder.append(labelbuf).append('.');
             len = unsignedByte(qnamebytes);
         }
