@@ -3,12 +3,14 @@ package org.akilroy;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.util.Collections;
@@ -24,6 +26,15 @@ public class DNSServerTest
 {
     private final DNSServer server = new DNSServer(4001);
 
+    @Before
+    public void setUp() throws IOException
+    {
+        server.setResolver(new HashMapResolver(Collections.singletonMap("www.cloudflare.com", new InetAddress[]{
+            Inet4Address.getByName("104.17.209.9"),
+            Inet4Address.getByName("104.17.210.9")
+        })));
+    }
+
     @Test
     public void extractHeaderAlways12Bytes() throws Exception
     {
@@ -36,10 +47,6 @@ public class DNSServerTest
     public void handleRequestWithOneQuestion() throws Exception
     {
         ByteBuf output = Unpooled.buffer(8192);
-        server.setResolver(new HashMapResolver(Collections.singletonMap("www.cloudflare.com", new InetAddress[]{
-            Inet4Address.getByName("104.17.209.9"),
-            Inet4Address.getByName("104.17.210.9")
-        })));
         server.handleQuery(
             new DNSHeader(decodeHex("ffa901200001000000000001")),
             wrappedBuffer(decodeHex("037777770a636c6f7564666c61726503636f6d00000100010000291000000000000000")),

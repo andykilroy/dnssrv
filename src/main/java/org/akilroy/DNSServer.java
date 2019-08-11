@@ -14,6 +14,7 @@ import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 
 /**
@@ -143,11 +144,27 @@ public class DNSServer
 
     private InetAddress[] lookup(ByteBuf qnamebytes) throws UnknownHostException
     {
-        // TODO parse qnamebytes and use resolver
-        return new InetAddress[]{
-            Inet4Address.getByName("104.17.209.9"),
-            Inet4Address.getByName("104.17.210.9")
-        };
+        String name = nameAsString(qnamebytes);
+        return resolver.lookup(name);
+    }
+
+    private String nameAsString(ByteBuf qnamebytes)
+    {
+        StringBuilder builder = new StringBuilder();
+        int len = unsignedByte(qnamebytes);
+        while (len > 0)
+        {
+            CharSequence labelbuf = qnamebytes.readCharSequence(len, StandardCharsets.ISO_8859_1);
+            builder.append(labelbuf).append('.');
+            len = unsignedByte(qnamebytes);
+        }
+        if (builder.length() > 0) builder.setLength(builder.length() - 1);
+        return builder.toString();
+    }
+
+    private int unsignedByte(ByteBuf bytes)
+    {
+        return 0xff & (int)bytes.readByte();
     }
 
     private byte[] toByteArray(ByteBuf buf)
