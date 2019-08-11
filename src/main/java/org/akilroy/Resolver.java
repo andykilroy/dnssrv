@@ -14,7 +14,7 @@ public interface Resolver
         @Override
         public InetAddress[] lookup(String qname)
         {
-            return new InetAddress[0];
+            return null;
         }
     };
 }

@@ -27,6 +27,7 @@ public class DNSServer
     private static final int RR_CLASS_IN = 1;
     private static final int OPS_QR_RESPONSE = 0x80;
     private static final int OPS_DR_RESPONSE = 0x01;
+    public static final int NAME_ERROR = 3;
 
     private int port;
     private Resolver resolver = Resolver.EMPTY;
@@ -101,27 +102,46 @@ public class DNSServer
         ByteBuf questions = Unpooled.buffer(512);
         ByteBuf answers = Unpooled.buffer(512);
 
-        instream.markReaderIndex();
-        int questionBytes = handleQuestion(instream, answers);
-        instream.resetReaderIndex();
-        instream.readBytes(questions, questionBytes);
+        try
+        {
+            instream.markReaderIndex();
+            int questionBytes = handleQuestion(instream, answers);
+            instream.resetReaderIndex();
+            instream.readBytes(questions, questionBytes);
 
-        // TODO need a means of recording the number of answers,
-        // and writing a new header.
+            // TODO need a means of recording the number of answers,
+            // and writing a new header.
+            outstream
+                .writeShort(header.getID())
+                .writeByte(OPS_DR_RESPONSE | OPS_QR_RESPONSE)
+                .writeByte(0)
+                .writeShort(1) // number of questions
+                .writeShort(2) // number of answers
+                .writeShort(0) // number of name server records
+                .writeShort(0);// number of additional records
+            outstream
+                .writeBytes(questions)
+                .writeBytes(answers);
+        }
+        catch (UnknownQNameException ex)
+        {
+            handleUnknownQName(header, outstream);
+        }
+    }
+
+    private void handleUnknownQName(DNSHeader header, ByteBuf outstream)
+    {
         outstream
             .writeShort(header.getID())
             .writeByte(OPS_DR_RESPONSE | OPS_QR_RESPONSE)
-            .writeByte(0)
-            .writeShort(1) // number of questions
-            .writeShort(2) // number of answers
+            .writeByte(NAME_ERROR)
+            .writeShort(0) // number of questions
+            .writeShort(0) // number of answers
             .writeShort(0) // number of name server records
             .writeShort(0);// number of additional records
-        outstream
-            .writeBytes(questions)
-            .writeBytes(answers);
     }
 
-    public int handleQuestion(ByteBuf instream, ByteBuf outstream) throws IOException
+    public int handleQuestion(ByteBuf instream, ByteBuf outstream) throws IOException, UnknownQNameException
     {
         int start = instream.readerIndex();
         int qnamelength = instream.bytesBefore(END_OF_QNAME);
@@ -142,10 +162,12 @@ public class DNSServer
         return questionLength;
     }
 
-    private InetAddress[] lookup(ByteBuf qnamebytes) throws UnknownHostException
+    private InetAddress[] lookup(ByteBuf qnamebytes) throws UnknownHostException, UnknownQNameException
     {
         String name = nameAsString(qnamebytes);
-        return resolver.lookup(name);
+        InetAddress[] lookup = resolver.lookup(name);
+        if (lookup == null || lookup.length == 0) throw new UnknownQNameException("could not resolve " + name);
+        return lookup;
     }
 
     private String nameAsString(ByteBuf qnamebytes)
@@ -170,7 +192,7 @@ public class DNSServer
     private byte[] toByteArray(ByteBuf buf)
     {
         byte[] bytes = new byte[buf.readableBytes()];
-        buf.readBytes(bytes.length);
+        buf.readBytes(bytes);
         return bytes;
     }
 

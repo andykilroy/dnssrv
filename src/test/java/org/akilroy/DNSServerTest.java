@@ -44,7 +44,41 @@ public class DNSServerTest
     }
 
     @Test
-    public void handleRequestWithOneQuestion() throws Exception
+    public void handleRequestWithOneQuestion_norecord() throws Exception
+    {
+        ByteBuf output = Unpooled.buffer(8192);
+        server.setResolver(Resolver.EMPTY);
+        server.handleQuery(
+            new DNSHeader(decodeHex("ffa901200001000000000001")),
+            wrappedBuffer(decodeHex("037777770a636c6f7564666c61726503636f6d00000100010000291000000000000000")),
+            output
+        );
+        assertArrayEquals(
+            decodeHex("ffa981030000000000000000"
+            ),
+            toByteArray(output));
+    }
+
+    @Test
+    public void handleRequestWithOneQuestion_expectOneAnswer() throws Exception
+    {
+        ByteBuf output = Unpooled.buffer(8192);
+        server.handleQuery(
+            new DNSHeader(decodeHex("ffa901200001000000000001")),
+            wrappedBuffer(decodeHex("037777770a636c6f7564666c61726503636f6d00000100010000291000000000000000")),
+            output
+        );
+        assertArrayEquals(
+            decodeHex("ffa981000001000200000000" + // header
+                      "037777770a636c6f7564666c61726503636f6d0000010001" + // question
+                      "037777770a636c6f7564666c61726503636f6d00000100010000012c00046811d109" + // answer 1
+                      "037777770a636c6f7564666c61726503636f6d00000100010000012c00046811d209"   // answer 2
+            ),
+            toByteArray(output));
+    }
+
+    @Test
+    public void handleRequestWithOneQuestion_expectTwoAnswers() throws Exception
     {
         ByteBuf output = Unpooled.buffer(8192);
         server.handleQuery(
@@ -74,7 +108,6 @@ public class DNSServerTest
                       "037777770a636c6f7564666c61726503636f6d00000100010000012c00046811d209"),
             toByteArray(output));
     }
-
 
     private byte[] toByteArray(ByteBuf output)
     {
