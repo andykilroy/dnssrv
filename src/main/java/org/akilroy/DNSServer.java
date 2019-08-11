@@ -14,6 +14,7 @@ import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
+import java.util.HashMap;
 
 /**
  * @author Andrew Kilroy
@@ -27,16 +28,30 @@ public class DNSServer
     private static final int OPS_DR_RESPONSE = 0x01;
 
     private int port;
+    private Resolver resolver = Resolver.EMPTY;
 
     public static void main(String[] args) throws Exception
     {
         DNSServer server = new DNSServer(4001);
+
+        HashMap<String, InetAddress[]> map = new HashMap<>();
+        map.put("www.cloudflare.com", new InetAddress[]{
+            Inet4Address.getByName("104.17.209.9"),
+            Inet4Address.getByName("104.17.210.9")
+        });
+        server.setResolver(new HashMapResolver(map));
+
         server.start();
     }
 
     public DNSServer(int listenPort)
     {
         port = listenPort;
+    }
+
+    public void setResolver(Resolver r)
+    {
+        resolver = r;
     }
 
     private void start() throws Exception
@@ -94,14 +109,13 @@ public class DNSServer
             .writeShort(header.getID())
             .writeByte(OPS_DR_RESPONSE | OPS_QR_RESPONSE)
             .writeByte(0)
-            .writeShort(1) // no questions
-            .writeShort(2) // no answers
-            .writeShort(0)
-            .writeShort(0);
+            .writeShort(1) // number of questions
+            .writeShort(2) // number of answers
+            .writeShort(0) // number of name server records
+            .writeShort(0);// number of additional records
         outstream
             .writeBytes(questions)
             .writeBytes(answers);
-
     }
 
     public int handleQuestion(ByteBuf instream, ByteBuf outstream) throws IOException
@@ -127,23 +141,23 @@ public class DNSServer
 
     private InetAddress[] lookup(ByteBuf qnamebytes) throws UnknownHostException
     {
+        // TODO parse qnamebytes and use resolver
         return new InetAddress[]{
             Inet4Address.getByName("104.17.209.9"),
             Inet4Address.getByName("104.17.210.9")
         };
     }
 
-    private byte[] toBytes(ByteBuf buf)
+    private byte[] toByteArray(ByteBuf buf)
     {
         byte[] bytes = new byte[buf.readableBytes()];
         buf.readBytes(bytes.length);
         return bytes;
     }
 
-    private void respond(DatagramSocket socket, SocketAddress respondTo, ByteBuf bytes) throws IOException
+    private void respond(DatagramSocket socket, SocketAddress respondTo, ByteBuf message) throws IOException
     {
-        byte[] response = new byte[bytes.readableBytes()];
-        bytes.readBytes(response);
+        byte[] response = toByteArray(message);
 
         DatagramPacket packet = new DatagramPacket(response, 0, response.length, respondTo);
         socket.send(packet);
@@ -154,17 +168,6 @@ public class DNSServer
         byte[] array = new byte[12];
         datastream.readBytes(array);
         return new DNSHeader(array);
-    }
-
-    private static void readN(DataInputStream stream, byte[] output, int offset, int length) throws IOException
-    {
-        int readCount = stream.read(output, offset, length);
-        while (readCount < length)
-        {
-            int readBytes = length - readCount;
-            int off = readCount;
-            readCount += stream.read(output, off, readBytes);
-        }
     }
 
 }
