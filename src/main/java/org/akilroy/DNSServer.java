@@ -3,10 +3,6 @@ package org.akilroy;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -25,9 +21,7 @@ public class DNSServer
     private static final byte END_OF_QNAME = (byte) 0x0;
     private static final int RR_TYPE_A = 1;
     private static final int RR_CLASS_IN = 1;
-    private static final int OPS_QR_RESPONSE = 0x80;
-    private static final int OPS_DR_RESPONSE = 0x01;
-    public static final int NAME_ERROR = 3;
+    private static final int NAME_ERROR = 3;
 
     private int port;
     private Resolver resolver = Resolver.EMPTY;
@@ -99,29 +93,15 @@ public class DNSServer
 
     public void handleQuery(DNSHeader header, ByteBuf instream, ByteBuf outstream) throws IOException
     {
-        ByteBuf questions = Unpooled.buffer(512);
-        ByteBuf answers = Unpooled.buffer(512);
-
         try
         {
+            DNSResponseBuilder builder = new DNSResponseBuilder(header);
             instream.markReaderIndex();
-            int questionBytes = handleQuestion(instream, answers);
+            int questionBytes = handleQuestion(instream, builder);
             instream.resetReaderIndex();
-            instream.readBytes(questions, questionBytes);
+            builder.appendQuestion(instream.readBytes(questionBytes));
 
-            // TODO need a means of recording the number of answers,
-            // and writing a new header.
-            outstream
-                .writeShort(header.getID())
-                .writeByte(OPS_DR_RESPONSE | OPS_QR_RESPONSE)
-                .writeByte(0)
-                .writeShort(1) // number of questions
-                .writeShort(2) // number of answers
-                .writeShort(0) // number of name server records
-                .writeShort(0);// number of additional records
-            outstream
-                .writeBytes(questions)
-                .writeBytes(answers);
+            builder.writeResponse(outstream);
         }
         catch (UnknownQNameException ex)
         {
@@ -131,17 +111,12 @@ public class DNSServer
 
     private void handleUnknownQName(DNSHeader header, ByteBuf outstream)
     {
-        outstream
-            .writeShort(header.getID())
-            .writeByte(OPS_DR_RESPONSE | OPS_QR_RESPONSE)
-            .writeByte(NAME_ERROR)
-            .writeShort(0) // number of questions
-            .writeShort(0) // number of answers
-            .writeShort(0) // number of name server records
-            .writeShort(0);// number of additional records
+        DNSResponseBuilder builder = new DNSResponseBuilder(header);
+        builder.setRCode(NAME_ERROR);
+        builder.writeResponse(outstream);
     }
 
-    public int handleQuestion(ByteBuf instream, ByteBuf outstream) throws IOException, UnknownQNameException
+    private int handleQuestion(ByteBuf instream, DNSResponseBuilder builder) throws IOException, UnknownQNameException
     {
         int start = instream.readerIndex();
         int qnamelength = instream.bytesBefore(END_OF_QNAME);
@@ -152,17 +127,12 @@ public class DNSServer
         InetAddress[] addrs = lookup(qnamebytes.slice());
         for (InetAddress addr : addrs)
         {
-            outstream.writeBytes(qnamebytes.slice());
-            outstream.writeShort(RR_TYPE_A);   // 2
-            outstream.writeShort(RR_CLASS_IN); // 2
-            outstream.writeInt(300);           // 4
-            outstream.writeShort(4);           // 2
-            outstream.writeBytes(addr.getAddress()); // 4
+            builder.appendAnswer(qnamebytes.slice(), RR_TYPE_A, RR_CLASS_IN, 300, addr.getAddress());
         }
         return questionLength;
     }
 
-    private InetAddress[] lookup(ByteBuf qnamebytes) throws UnknownHostException, UnknownQNameException
+    private InetAddress[] lookup(ByteBuf qnamebytes) throws UnknownQNameException
     {
         String name = nameAsString(qnamebytes);
         InetAddress[] lookup = resolver.lookup(name);

@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.util.Collections;
+import java.util.HashMap;
 
 import static io.netty.buffer.Unpooled.wrappedBuffer;
 import static org.junit.Assert.assertArrayEquals;
@@ -63,16 +64,18 @@ public class DNSServerTest
     public void handleRequestWithOneQuestion_expectOneAnswer() throws Exception
     {
         ByteBuf output = Unpooled.buffer(8192);
+        server.setResolver(new HashMapResolver(
+            Collections.singletonMap("www.cloudflare.com", new InetAddress[]{
+                Inet4Address.getByName("104.17.209.9")})));
         server.handleQuery(
             new DNSHeader(decodeHex("ffa901200001000000000001")),
             wrappedBuffer(decodeHex("037777770a636c6f7564666c61726503636f6d00000100010000291000000000000000")),
             output
         );
         assertArrayEquals(
-            decodeHex("ffa981000001000200000000" + // header
+            decodeHex("ffa981000001000100000000" + // header
                       "037777770a636c6f7564666c61726503636f6d0000010001" + // question
-                      "037777770a636c6f7564666c61726503636f6d00000100010000012c00046811d109" + // answer 1
-                      "037777770a636c6f7564666c61726503636f6d00000100010000012c00046811d209"   // answer 2
+                      "037777770a636c6f7564666c61726503636f6d00000100010000012c00046811d109" // answer 1
             ),
             toByteArray(output));
     }
@@ -92,20 +95,6 @@ public class DNSServerTest
                       "037777770a636c6f7564666c61726503636f6d00000100010000012c00046811d109" + // answer 1
                       "037777770a636c6f7564666c61726503636f6d00000100010000012c00046811d209"   // answer 2
                       ),
-            toByteArray(output));
-    }
-
-    @Test
-    public void handleQuestion() throws Exception
-    {
-        ByteBuf output = Unpooled.buffer(8192);
-        server.handleQuestion(
-            wrappedBuffer(decodeHex("037777770a636c6f7564666c61726503636f6d0000010001")),
-            output
-        );
-        assertArrayEquals(
-            decodeHex("037777770a636c6f7564666c61726503636f6d00000100010000012c00046811d109" +
-                      "037777770a636c6f7564666c61726503636f6d00000100010000012c00046811d209"),
             toByteArray(output));
     }
 
