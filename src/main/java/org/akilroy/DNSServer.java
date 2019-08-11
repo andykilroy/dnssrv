@@ -105,6 +105,8 @@ public class DNSServer
         instream.resetReaderIndex();
         instream.readBytes(questions, questionBytes);
 
+        // TODO need a means of recording the number of answers,
+        // and writing a new header.
         outstream
             .writeShort(header.getID())
             .writeByte(OPS_DR_RESPONSE | OPS_QR_RESPONSE)
